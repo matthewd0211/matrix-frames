@@ -1,0 +1,175 @@
+document.addEventListener('DOMContentLoaded', function() {
+    const canvas = document.getElementById('matrixCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let columns, drops, speeds, trails;
+    const glyphSize = 15; // Adjust based on your desired density
+    const maxTrailLength = 100; // Maximum number of characters in a trail
+
+    // Define colors
+    const colors = {
+        background: '#0E0C15', // Dark background
+        gradientStart: '#01FFB3', // Teal
+        gradientEnd: '#B062E8'  // Purple
+    };
+
+    // Paths to custom SVG glyphs
+    const svgPaths = [
+        '1.svg',
+        '2.svg',
+        '3.svg',
+        '4.svg',
+        '5.svg',
+        '6.svg',
+        '7.svg',
+        '8.svg',
+        '9.svg',
+        '10.svg',
+        '11.svg',
+        '12.svg',
+        // Add paths to all glyphs here
+    ];
+
+    const glyphs = []; // Array to hold Image objects for glyphs
+
+    // Preload SVGs and convert to Image objects
+    function preloadGlyphs(paths, callback) {
+        let loadedCount = 0;
+        paths.forEach((path, index) => {
+            const img = new Image();
+            img.onload = function() {
+                glyphs[index] = img;
+                loadedCount++;
+                if (loadedCount === paths.length) {
+                    callback();
+                }
+            };
+            img.src = path;
+        });
+    }
+
+    const logo = new Image();
+    logo.src = 'Logo.png'; // Path to logo file
+
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        columns = Math.floor(canvas.width / glyphSize);
+        drops = Array(columns).fill(0);
+        speeds = Array(columns).fill(0).map(() => Math.random() * 0.5 + 0.1); // Speeds between 0.05 and 0.6
+        trails = Array(columns).fill(null).map(() => []);
+        console.log(`Canvas size: ${canvas.width}x${canvas.height}, Columns: ${columns}`);
+    }
+
+    function drawGlowingText(image, x, y) {
+        ctx.shadowColor = 'rgba(255, 255, 255, 1)';
+        ctx.shadowBlur = 10;
+        ctx.drawImage(image, x, y, glyphSize, glyphSize);
+        ctx.shadowBlur = 0;
+    }
+
+    function drawGlitchEffect() {
+        if (Math.random() > 0.95) {
+            const x = Math.random() * canvas.width;
+            const y = Math.random() * canvas.height;
+            const width = Math.random() * 100 + 20;
+            const height = Math.random() * 5 + 1;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.fillRect(x, y, width, height);
+        }
+    }
+
+    function drawLogo() {
+        const logoWidth = canvas.width / 3;
+        const logoHeight = logoWidth * (logo.height / logo.width);
+        const logoX = (canvas.width - logoWidth) / 2;
+        const logoY = (canvas.height - logoHeight) / 2;
+        ctx.drawImage(logo, logoX, logoY, logoWidth, logoHeight);
+    }
+
+    function createGradientOverlay() {
+        const gradientCanvas = document.createElement('canvas');
+        const gradientCtx = gradientCanvas.getContext('2d');
+        gradientCanvas.width = canvas.width;
+        gradientCanvas.height = canvas.height;
+
+        // Create top-to-bottom gradient
+        const gradient = gradientCtx.createLinearGradient(0, 0, 0, canvas.height);
+        gradient.addColorStop(0, colors.gradientStart);
+        gradient.addColorStop(1, colors.gradientEnd);
+
+        // Apply gradient
+        gradientCtx.fillStyle = gradient;
+        gradientCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+        return gradientCanvas;
+    }
+
+    function draw() {
+        // Clear the entire canvas
+        ctx.fillStyle = colors.background;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        for (let i = 0; i < columns; i++) {
+            const x = i * glyphSize;
+
+            // Update trail
+            if (drops[i] * glyphSize > canvas.height && Math.random() > 0.99) {
+                drops[i] = 0;
+                trails[i] = [];
+            }
+
+            // Add new character to trail
+            if (drops[i] % 1 < speeds[i]) {
+                trails[i].unshift({
+                    char: glyphs[Math.floor(Math.random() * glyphs.length)],
+                    opacity: 1
+                });
+                if (trails[i].length > maxTrailLength) {
+                    trails[i].pop();
+                }
+            }
+
+            // Draw trail
+            for (let j = 0; j < trails[i].length; j++) {
+                const y = Math.floor(drops[i] - j) * glyphSize;
+                if (j === 0) {
+                    drawGlowingText(trails[i][j].char, x, y);
+                } else {
+                    ctx.globalAlpha = trails[i][j].opacity;
+                    ctx.drawImage(trails[i][j].char, x, y, glyphSize, glyphSize);
+                    ctx.globalAlpha = 1.0;
+                }
+                trails[i][j].opacity -= 0.015; // Fade out characters
+            }
+
+            // Remove fully faded characters
+            trails[i] = trails[i].filter(char => char.opacity > 0);
+
+            // Move drop
+            drops[i] += speeds[i];
+        }
+
+        drawGlitchEffect();
+
+        // Apply gradient overlay
+        const gradientCanvas = createGradientOverlay();
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.drawImage(gradientCanvas, 0, 0);
+        ctx.globalCompositeOperation = 'source-over';
+
+        drawLogo();
+
+        requestAnimationFrame(draw);
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Preload glyphs and start animation
+    preloadGlyphs(svgPaths, () => {
+        requestAnimationFrame(draw);
+    });
+
+    console.log("Animation started");
+});
